@@ -100,24 +100,23 @@ trap '__b3bp_err_report "${FUNCNAME:-.}" ${LINENO}' ERR
 ### Build procedure
 ##############################################################################
 
-if [[ "$OSTYPE" == "msys" ]]; then
-  __skip_msys_deps=false
+__skip_deps=false
 
-  while getopts ":hs" opt; do
-      case "$opt" in
-      h|\?)
-          echo "Usage:"
-          echo " -s   Skip installing MSys dependencies."
-          echo ""
-          exit 0
-          ;;
-      s)  __skip_msys_deps=true
-          ;;
-      esac
-  done
+while getopts ":hs" opt; do
+    case "$opt" in
+    h|\?)
+        echo "Usage:"
+        echo " -s   Skip installing dependencies."
+        echo ""
+        exit 0
+        ;;
+    s)  __skip_deps=true
+        ;;
+    esac
+done
 
-  if [[ ! "${__skip_msys_deps}" = true ]] && [[ "${MSYSTEM_CARCH:-}" ]]; then
-
+if [[ ! "${__skip_deps}" = true ]]; then
+  if [[ "$OSTYPE" == "msys" ]] && [[ "${MSYSTEM_CARCH:-}" ]]; then
     info "Installing MSys dependencies ..."
 
     # Skip font cache update
@@ -125,7 +124,6 @@ if [[ "$OSTYPE" == "msys" ]]; then
 
     # Install build dependencies
     pacman --noconfirm -S --needed \
-        wget \
         make \
         unzip \
         mingw-w64-"${MSYSTEM_CARCH}"-gcc \
@@ -140,11 +138,28 @@ if [[ "$OSTYPE" == "msys" ]]; then
         mingw-w64-"${MSYSTEM_CARCH}"-gtksourceview3 \
         mingw-w64-"${MSYSTEM_CARCH}"-python-pip \
         mingw-w64-"${MSYSTEM_CARCH}"-nsis
+  elif [[ "$OSTYPE" == "darwin"* ]]; then
+    hash brew 2>/dev/null || emergency "brew not found; Please install Homebrew first."
 
+    info "Installing dependencies using Homebrew ..."
+
+    brew install \
+        pkg-config \
+        python@3.8 \
+        gtk+3 \
+        adwaita-icon-theme  \
+        gtksourceview3 \
+        pygobject3 \
+        librsvg
   fi
+fi
 
-  hash wget 2>/dev/null || emergency "wget not found"
-  hash python3 2>/dev/null || emergency "Python 3.x not found. Have you started MSYS2 MinGW 64-bit?"  
+info "Checking dependencies ..."
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  hash /usr/local/opt/python@3.8/bin/python3 2>/dev/null || emergency "Python 3.8 not found."
+else
+  hash python3 2>/dev/null || emergency "Python 3.x not found. Have you started MSYS2 MinGW 64-bit?"
 fi
 
 hash pkg-config 2>/dev/null || emergency "pkg-config not found"
@@ -162,6 +177,7 @@ __venv_dir=${__build_dir}/venv
 
 rm -rf "${__venv_dir}"
 if [[ "$OSTYPE" == "darwin"* ]]; then
+  # Currently, the Gtk bindings in Homebrew are linked against Python 3.8
   /usr/local/opt/python@3.8/bin/python3 -m venv --prompt Zim "${__venv_dir}"
 else
   python3 -m venv --prompt Zim "${__venv_dir}"
@@ -234,19 +250,7 @@ export PYTHONHASHSEED
 unset PYTHONHASHSEED
 
 if [[ "$OSTYPE" == "msys" ]]; then
-  __theme_tag="2020-02-26"
-  if [[ ! -f "${__build_dir}/Qogir-theme-${__theme_tag}.zip" ]]; then
-    info "Fetching Gtk theme ..."
-    wget -q -O "${__build_dir}/Qogir-theme-${__theme_tag}.zip" "https://github.com/vinceliuice/Qogir-theme/archive/${__theme_tag}.zip"
-  fi
-
-  info "Installing theme in distribution ..."
-
-  unzip -q "${__build_dir}/Qogir-theme-${__theme_tag}.zip" -d "${__build_dir}"
-  (cd "${__build_dir}/Qogir-theme-${__theme_tag}" && ./install.sh --dest "${__dist_dir}"/share/themes --name Qogir --theme standard --color light --win square)
-  mkdir -p "${__dist_dir}/etc/gtk-3.0" && cp -a "${__dir}/src/settings.ini" "${__dist_dir}/etc/gtk-3.0/settings.ini"
-
-  info "Building Zim installer ..."
+  info "Building Windows installer ..."
 
   (cd "${__dist_dir}" && makensis -NOCD -DVERSION="${__zim_ver}" "${__dir}/src/zim-installer.nsi")
 
