@@ -128,7 +128,8 @@ exe = EXE( # noqa
     upx=False,
     icon='../../icons/zim.ico',
     version='../build/file_version_info.txt',
-    console=False)
+    console=False,
+    windowed=True)
 
 coll = COLLECT( # noqa
     exe,
@@ -139,3 +140,13 @@ coll = COLLECT( # noqa
     upx=False,
     upx_exclude=[],
     name='zim')
+
+app = BUNDLE(coll,
+    name='Zim.app',
+    icon='../build/Zim.icns',
+    bundle_identifier=None,
+    info_plist={
+        'NSPrincipalClass': 'NSApplication',
+        'NSAppleScriptEnabled': False,
+    },
+    )

@@ -100,51 +100,54 @@ trap '__b3bp_err_report "${FUNCNAME:-.}" ${LINENO}' ERR
 ### Build procedure
 ##############################################################################
 
-__skip_msys_deps=false
+if [[ "$OSTYPE" == "msys" ]]; then
+  __skip_msys_deps=false
 
-while getopts ":hs" opt; do
-    case "$opt" in
-    h|\?)
-        echo "Usage:"
-        echo " -s   Skip installing MSys dependencies."
-        echo ""
-        exit 0
-        ;;
-    s)  __skip_msys_deps=true
-        ;;
-    esac
-done
+  while getopts ":hs" opt; do
+      case "$opt" in
+      h|\?)
+          echo "Usage:"
+          echo " -s   Skip installing MSys dependencies."
+          echo ""
+          exit 0
+          ;;
+      s)  __skip_msys_deps=true
+          ;;
+      esac
+  done
 
-if [[ ! "${__skip_msys_deps}" = true ]] && [[ "${MSYSTEM_CARCH:-}" ]]; then
+  if [[ ! "${__skip_msys_deps}" = true ]] && [[ "${MSYSTEM_CARCH:-}" ]]; then
 
-  info "Installing MSys dependencies ..."
+    info "Installing MSys dependencies ..."
 
-  # Skip font cache update
-  export MSYS2_FC_CACHE_SKIP=1
+    # Skip font cache update
+    export MSYS2_FC_CACHE_SKIP=1
 
-  # Install build dependencies
-  pacman --noconfirm -S --needed \
-      wget \
-      make \
-      unzip \
-      mingw-w64-"${MSYSTEM_CARCH}"-gcc \
-      mingw-w64-"${MSYSTEM_CARCH}"-gtk3 \
-      mingw-w64-"${MSYSTEM_CARCH}"-pkg-config \
-      mingw-w64-"${MSYSTEM_CARCH}"-cairo \
-      mingw-w64-"${MSYSTEM_CARCH}"-gobject-introspection \
-      mingw-w64-"${MSYSTEM_CARCH}"-python \
-      mingw-w64-"${MSYSTEM_CARCH}"-python-gobject \
-      mingw-w64-"${MSYSTEM_CARCH}"-python-cairo \
-      mingw-w64-"${MSYSTEM_CARCH}"-python-xdg \
-      mingw-w64-"${MSYSTEM_CARCH}"-gtksourceview3 \
-      mingw-w64-"${MSYSTEM_CARCH}"-python-pip \
-      mingw-w64-"${MSYSTEM_CARCH}"-nsis
+    # Install build dependencies
+    pacman --noconfirm -S --needed \
+        wget \
+        make \
+        unzip \
+        mingw-w64-"${MSYSTEM_CARCH}"-gcc \
+        mingw-w64-"${MSYSTEM_CARCH}"-gtk3 \
+        mingw-w64-"${MSYSTEM_CARCH}"-pkg-config \
+        mingw-w64-"${MSYSTEM_CARCH}"-cairo \
+        mingw-w64-"${MSYSTEM_CARCH}"-gobject-introspection \
+        mingw-w64-"${MSYSTEM_CARCH}"-python \
+        mingw-w64-"${MSYSTEM_CARCH}"-python-gobject \
+        mingw-w64-"${MSYSTEM_CARCH}"-python-cairo \
+        mingw-w64-"${MSYSTEM_CARCH}"-python-xdg \
+        mingw-w64-"${MSYSTEM_CARCH}"-gtksourceview3 \
+        mingw-w64-"${MSYSTEM_CARCH}"-python-pip \
+        mingw-w64-"${MSYSTEM_CARCH}"-nsis
 
+  fi
+
+  hash wget 2>/dev/null || emergency "wget not found"
+  hash python3 2>/dev/null || emergency "Python 3.x not found. Have you started MSYS2 MinGW 64-bit?"  
 fi
 
-hash python3 2>/dev/null || emergency "Python 3.x not found. Have you started MSYS2 MinGW 64-bit?"
 hash pkg-config 2>/dev/null || emergency "pkg-config not found"
-hash wget 2>/dev/null || emergency "wget not found"
 hash sed 2>/dev/null || emergency "sed not found"
 
 pkg-config --print-errors --exists 'gobject-introspection-1.0 >= 1.46.0' >/dev/null 2>&1 || emergency "GObject-Introspection not found, Please check above errors and correct them"
@@ -158,7 +161,11 @@ __build_dir=${__dir}/build
 __venv_dir=${__build_dir}/venv
 
 rm -rf "${__venv_dir}"
-python3 -m venv --prompt Zim "${__venv_dir}"
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  /usr/local/opt/python@3.8/bin/python3 -m venv --prompt Zim "${__venv_dir}"
+else
+  python3 -m venv --prompt Zim "${__venv_dir}"
+fi
 
 info "Entering virtual environment ..."
 
@@ -192,9 +199,29 @@ info "Installing Zim in the virtual environment ..."
 
 (cd "${__dir}/.." && python setup.py -q install)
 # Rename launcher to avoid conflict with module
-mv "${__venv_dir}/bin/zim.py" "${__venv_dir}/bin/zim_launch.py"
+if [[ "$OSTYPE" == "msys" ]]; then
+  mv "${__venv_dir}/bin/zim.py" "${__venv_dir}/bin/zim_launch.py"
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+  mv "${__venv_dir}/bin/zim" "${__venv_dir}/bin/zim_launch.py"
+fi
 
-info "Preparing distribution ..."
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  info "Preparing app icon ..."
+
+  __icon_source="${__dir}/../icons/zim48.svg"
+  __icon_dir="${__build_dir}/Zim.iconset"
+  mkdir -p "${__icon_dir}"
+
+  sizes=(16 32 64 128 256 512)
+  for s in "${sizes[@]}"; do
+    rsvg-convert -h $((s)) "${__icon_source}" > "${__icon_dir}/icon_${s}x${s}.png"
+    rsvg-convert -h $((s*2)) "${__icon_source}" > "${__icon_dir}/icon_${s}x${s}@2x.png"
+  done
+
+  iconutil -c icns "${__icon_dir}"
+fi
+
+info "Building distribution ..."
 
 __dist_dir="${__dir}/dist/zim"
 rm -rf "${__dist_dir}"
@@ -206,21 +233,24 @@ export PYTHONHASHSEED
 # let Python be unpredictable again
 unset PYTHONHASHSEED
 
-__theme_tag="2020-02-26"
-if [[ ! -f "${__build_dir}/Qogir-theme-${__theme_tag}.zip" ]]; then
-  info "Fetching Gtk theme ..."
-  wget -q -O "${__build_dir}/Qogir-theme-${__theme_tag}.zip" "https://github.com/vinceliuice/Qogir-theme/archive/${__theme_tag}.zip"
+if [[ "$OSTYPE" == "msys" ]]; then
+  __theme_tag="2020-02-26"
+  if [[ ! -f "${__build_dir}/Qogir-theme-${__theme_tag}.zip" ]]; then
+    info "Fetching Gtk theme ..."
+    wget -q -O "${__build_dir}/Qogir-theme-${__theme_tag}.zip" "https://github.com/vinceliuice/Qogir-theme/archive/${__theme_tag}.zip"
+  fi
+
+  info "Installing theme in distribution ..."
+
+  unzip -q "${__build_dir}/Qogir-theme-${__theme_tag}.zip" -d "${__build_dir}"
+  (cd "${__build_dir}/Qogir-theme-${__theme_tag}" && ./install.sh --dest "${__dist_dir}"/share/themes --name Qogir --theme standard --color light --win square)
+  mkdir -p "${__dist_dir}/etc/gtk-3.0" && cp -a "${__dir}/src/settings.ini" "${__dist_dir}/etc/gtk-3.0/settings.ini"
+
+  info "Building Zim installer ..."
+
+  (cd "${__dist_dir}" && makensis -NOCD -DVERSION="${__zim_ver}" "${__dir}/src/zim-installer.nsi")
+
+  info "Setup file is at: ${__dist_dir}/zim-desktop-wiki-${__zim_ver}-setup.exe"
 fi
 
-info "Installing theme in distribution ..."
-
-unzip -q "${__build_dir}/Qogir-theme-${__theme_tag}.zip" -d "${__build_dir}"
-(cd "${__build_dir}/Qogir-theme-${__theme_tag}" && ./install.sh --dest "${__dist_dir}"/share/themes --name Qogir --theme standard --color light --win square)
-mkdir -p "${__dist_dir}/etc/gtk-3.0" && cp -a "${__dir}/src/settings.ini" "${__dist_dir}/etc/gtk-3.0/settings.ini"
-
-info "Building Zim installer ..."
-
-(cd "${__dist_dir}" && makensis -NOCD -DVERSION="${__zim_ver}" "${__dir}/src/zim-installer.nsi")
-
 info "Finished successfully."
-info "Setup file is at: ${__dist_dir}/zim-desktop-wiki-${__zim_ver}-setup.exe"
