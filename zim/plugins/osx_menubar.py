@@ -18,13 +18,15 @@
 
 # TODO: hide "help" menu from the menubar ?
 
+import gi
+
 from gi.repository import Gtk
 
 from zim.gui.mainwindow import MainWindowExtension
-
 from zim.plugins import PluginClass
 
 try:
+	gi.require_version('GtkosxApplication', '2.1')
 	from gi.repository import GtkosxApplication
 except ImportError:
 	GtkosxApplication = None

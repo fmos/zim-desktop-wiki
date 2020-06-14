@@ -1,8 +1,45 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 import os.path
+import platform
 
 block_cipher = None
+
+hiddenimports = [
+    'zim.plugins.arithmetic',
+    'zim.plugins.attachmentbrowser',
+    'zim.plugins.backlinkpane',
+    'zim.plugins.base',
+    'zim.plugins.bookmarksbar',
+    'zim.plugins.diagrameditor',
+    'zim.plugins.ditaeditor',
+    'zim.plugins.equationeditor',
+    'zim.plugins.gnu_r_ploteditor',
+    'zim.plugins.gnuplot_ploteditor',
+    'zim.plugins.inlinecalculator',
+    'zim.plugins.insertsymbol',
+    'zim.plugins.journal',
+    'zim.plugins.linesorter',
+    'zim.plugins.linkmap',
+    'zim.plugins.pageindex',
+    'zim.plugins.pathbar',
+    'zim.plugins.printtobrowser',
+    'zim.plugins.quicknote',
+    'zim.plugins.scoreeditor',
+    'zim.plugins.screenshot',
+    'zim.plugins.sequencediagrameditor',
+    'zim.plugins.sourceview',
+    'zim.plugins.spell',
+    'zim.plugins.tableeditor',
+    'zim.plugins.tableofcontents',
+    'zim.plugins.tags',
+    'zim.plugins.tasklist',
+    'zim.plugins.trayicon',
+    'zim.plugins.versioncontrol'
+]
+
+if platform.system() == "Darwin":
+    hiddenimports.append('zim.plugins.osx_menubar')
 
 a = Analysis( # noqa
     ['../build/venv/bin/zim_launch.py'],
@@ -12,38 +49,7 @@ a = Analysis( # noqa
         ('../build/venv/share', 'share'),
         ('../../zim/plugins', 'share/zim/plugins'),
     ],
-    hiddenimports=[
-        'zim.plugins.arithmetic',
-        'zim.plugins.attachmentbrowser',
-        'zim.plugins.backlinkpane',
-        'zim.plugins.base',
-        'zim.plugins.bookmarksbar',
-        'zim.plugins.diagrameditor',
-        'zim.plugins.ditaeditor',
-        'zim.plugins.equationeditor',
-        'zim.plugins.gnu_r_ploteditor',
-        'zim.plugins.gnuplot_ploteditor',
-        'zim.plugins.inlinecalculator',
-        'zim.plugins.insertsymbol',
-        'zim.plugins.journal',
-        'zim.plugins.linesorter',
-        'zim.plugins.linkmap',
-        'zim.plugins.pageindex',
-        'zim.plugins.pathbar',
-        'zim.plugins.printtobrowser',
-        'zim.plugins.quicknote',
-        'zim.plugins.scoreeditor',
-        'zim.plugins.screenshot',
-        'zim.plugins.sequencediagrameditor',
-        'zim.plugins.sourceview',
-        'zim.plugins.spell',
-        'zim.plugins.tableeditor',
-        'zim.plugins.tableofcontents',
-        'zim.plugins.tags',
-        'zim.plugins.tasklist',
-        'zim.plugins.trayicon',
-        'zim.plugins.versioncontrol'
-    ],
+    hiddenimports=hiddenimports,
     hookspath=[],
     runtime_hooks=['src/hook-data.py'],
     excludes=['lib2to3', 'tcl', 'tk',
